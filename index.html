@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tüketim Takip Uygulaması</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Inter fontunu kullan */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Açık gri arka plan */
+        }
+        /* Özel kaydırma çubuğu stili */
+        .history-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        .history-list::-webkit-scrollbar-track {
+            background: #e2e8f0; /* Açık gri */
+            border-radius: 10px;
+        }
+        .history-list::-webkit-scrollbar-thumb {
+            background: #94a3b8; /* Orta gri */
+            border-radius: 10px;
+        }
+        .history-list::-webkit-scrollbar-thumb:hover {
+            background: #64748b; /* Koyu gri */
+        }
+        .collapsible-header {
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .collapsible-content.expanded {
+            max-height: 500px; /* Yeterince büyük bir değer, içeriğe göre ayarlayın */
+        }
+        .arrow-icon {
+            transition: transform 0.3s ease-out;
+        }
+        .collapsible-header.expanded .arrow-icon {
+            transform: rotate(90deg);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-100 to-indigo-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl p-6 md:p-8 w-full max-w-2xl transform transition-all duration-300 hover:scale-[1.01]">
+        <!-- Akra Hotels Logo -->
+        <div class="flex justify-center mb-6">
+            <img src="image.png" 
+                 alt="Akra Hotels Logo" 
+                 class="h-16 md:h-20 w-auto rounded-lg shadow-md"
+            >
+        </div>
+        
+        <h1 class="text-3xl md:text-4xl font-extrabold text-center text-gray-800 mb-6 tracking-tight">
+            <span class="text-blue-600">Beach Bar</span> Tüketim Formu
+        </h1>
+
+        <!-- Mesaj Kutusu -->
+        <div id="message-box" class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg relative mb-4 text-center transition-opacity duration-300 opacity-0">
+            <span id="message-text"></span>
+        </div>
+
+        <!-- Ürün Butonları Bölümü -->
+        <div class="mb-8" id="product-categories">
+            <!-- Kategoriler buraya JavaScript ile eklenecek -->
+        </div>
+
+        <!-- Bugünkü Tüketim Geçmişi Bölümü -->
+        <div class="mb-8">
+            <h2 class="text-xl md:text-2xl font-semibold text-gray-700 mb-4 border-b pb-2 flex justify-between items-center">
+                Bugünkü Tüketimler
+                <button id="clear-today-history-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-300 text-sm md:text-base transform hover:scale-105 active:scale-95">
+                    Bugünküleri Temizle
+                </button>
+            </h2>
+            <div id="current-day-history-list" class="bg-gray-50 p-4 rounded-lg shadow-inner max-h-80 overflow-y-auto history-list">
+                <!-- Bugünkü tüketim geçmişi buraya JavaScript ile eklenecek -->
+                <p id="no-current-history-message" class="text-gray-500 text-center italic">Bugün henüz bir tüketim kaydı yok.</p>
+            </div>
+            <!-- Toplam tutar alanı kaldırıldı -->
+        </div>
+
+        <!-- Geçmiş Günlükler Bölümü -->
+        <div>
+            <h2 class="text-xl md:text-2xl font-semibold text-gray-700 mb-4 border-b pb-2 flex justify-between items-center">
+                Geçmiş Günlükler
+                <button id="clear-all-history-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-300 text-sm md:text-base transform hover:scale-105 active:scale-95">
+                    Tüm Logları Temizle
+                </button>
+            </h2>
+            <div id="daily-logs-list" class="bg-gray-50 p-4 rounded-lg shadow-inner max-h-80 overflow-y-auto history-list">
+                <!-- Geçmiş günlükler buraya JavaScript ile eklenecek -->
+                <p id="no-daily-logs-message" class="text-gray-500 text-center italic">Henüz geçmiş bir log yok.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Uygulamanın temel ürün listesi, kategorilere ayrılmış (fiyatlar kaldırıldı)
+        const productCategories = {
+            "Su/Soda": [
+                "Soda", "Büyük su", "Küçük su", "S pellegrino büyük", "S pellegrino küçük"
+            ],
+            "Meşrubatlar": [
+                "Cola", "Cola Zero", "Cola light", "Fanta", "Sprite", 
+                "Fuse tea şeftali", "Fuse tea limon", "Tonik", "Bitter limon", "Mandalina"
+            ],
+            "Biralar": [
+                "Efes", "Corona", "Heineken", "Becks", "Miller", "Guinness"
+            ],
+            "Diğerleri": [
+                "Ayran", "Redbull", "Redbull şekersiz", "Raja"
+            ]
+        };
+
+        // HTML elementlerini seç
+        const productCategoriesContainer = document.getElementById('product-categories');
+        const currentDayHistoryListContainer = document.getElementById('current-day-history-list');
+        const noCurrentHistoryMessage = document.getElementById('no-current-history-message');
+        // currentDayTotalAmountSpan kaldırıldı
+        const dailyLogsListContainer = document.getElementById('daily-logs-list');
+        const noDailyLogsMessage = document.getElementById('no-daily-logs-message');
+
+        const clearTodayHistoryBtn = document.getElementById('clear-today-history-btn');
+        const clearAllHistoryBtn = document.getElementById('clear-all-history-btn');
+
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+
+        // Mesaj kutusunu gösteren fonksiyon
+        function showMessage(text, type = 'success') {
+            messageText.textContent = text;
+            messageBox.classList.remove('hidden', 'opacity-0', 'bg-green-100', 'border-green-400', 'text-green-700', 'bg-red-100', 'border-red-400', 'text-red-700');
+            
+            if (type === 'success') {
+                messageBox.classList.add('bg-green-100', 'border-green-400', 'text-green-700');
+            } else if (type === 'error') {
+                messageBox.classList.add('bg-red-100', 'border-red-400', 'text-red-700');
+            }
+            
+            messageBox.classList.add('opacity-100'); // Görünür yap
+
+            // Belirli bir süre sonra mesajı gizle
+            setTimeout(() => {
+                messageBox.classList.remove('opacity-100');
+                messageBox.classList.add('opacity-0');
+                setTimeout(() => {
+                    messageBox.classList.add('hidden'); // Tamamen gizle
+                }, 300); // Opaklık geçiş süresi kadar bekle
+            }, 3000); // 3 saniye sonra gizle
+        }
+
+        /**
+         * Mevcut tarihi YYYY-MM-DD formatında döndürür.
+         * @returns {string} Geçerli tarih stringi.
+         */
+        function getCurrentDateString() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0'); // Ay 0'dan başlar
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        /**
+         * Günlük sıfırlama kontrolünü yapar ve gerekirse verileri temizler.
+         * Geçmiş günün tüketimlerini günlük loglara kaydeder.
+         */
+        function checkAndResetDaily() {
+            const currentDate = getCurrentDateString();
+            const lastResetDate = localStorage.getItem('lastResetDate');
+            let currentDayConsumptions = JSON.parse(localStorage.getItem('currentDayConsumptions')) || {};
+            let dailyLogs = JSON.parse(localStorage.getItem('dailyLogs')) || {};
+
+            // Eğer kaydedilmiş bir tarih yoksa veya tarih bugünden farklıysa (yani yeni bir günse)
+            if (!lastResetDate || lastResetDate !== currentDate) {
+                // Eğer önceki güne ait tüketimler varsa, onları günlük loglara kaydet
+                if (Object.keys(currentDayConsumptions).length > 0 && lastResetDate) {
+                    dailyLogs[lastResetDate] = currentDayConsumptions;
+                    localStorage.setItem('dailyLogs', JSON.stringify(dailyLogs));
+                    console.log(`Önceki gün (${lastResetDate}) tüketimleri loglandı.`);
+                }
+                
+                localStorage.removeItem('currentDayConsumptions'); // Bugünkü tüketimleri temizle
+                localStorage.setItem('lastResetDate', currentDate); // Yeni sıfırlama tarihini kaydet
+                
+                renderConsumptionHistory(); // UI'ı güncelle
+                renderDailyLogs(); // Günlük logları güncelle
+
+                if (lastResetDate) { // Sadece ilk kez açıldığında değil, gün değiştiğinde mesaj göster
+                    showMessage('Günlük tüketim kayıtları sıfırlandı ve loglandı!', 'error'); 
+                }
+            }
+        }
+
+        // Tüketim miktarını günceller (+ veya -)
+        function updateConsumption(productName, change) {
+            let currentDayConsumptions = JSON.parse(localStorage.getItem('currentDayConsumptions')) || {};
+
+            if (!currentDayConsumptions[productName] && change === -1) {
+                // Ürün yoksa ve azaltmaya çalışıyorsak bir şey yapma
+                return;
+            }
+
+            if (currentDayConsumptions[productName]) {
+                currentDayConsumptions[productName].count += change;
+                currentDayConsumptions[productName].lastConsumed = new Date().toISOString(); // Son tüketim zamanını güncelle
+                
+                if (currentDayConsumptions[productName].count <= 0) {
+                    delete currentDayConsumptions[productName]; // Sayı 0 veya altına düşerse ürünü tamamen sil
+                    showMessage(`${productName} sıfırlandı.`, 'error');
+                } else {
+                    showMessage(`${productName} güncellendi! Toplam: ${currentDayConsumptions[productName].count}`);
+                }
+            } else {
+                // Ürün hiç yoksa ve artırıyorsak, yeni kayıt oluştur
+                currentDayConsumptions[productName] = {
+                    count: 1,
+                    lastConsumed: new Date().toISOString()
+                };
+                showMessage(`${productName} kaydedildi! Toplam: ${currentDayConsumptions[productName].count}`);
+            }
+
+            localStorage.setItem('currentDayConsumptions', JSON.stringify(currentDayConsumptions));
+            renderConsumptionHistory(); // Bugünkü geçmişi yeniden render et
+        }
+
+        // Bugünkü tüketim geçmişini render et
+        function renderConsumptionHistory() {
+            const currentDayConsumptions = JSON.parse(localStorage.getItem('currentDayConsumptions')) || {};
+            currentDayHistoryListContainer.innerHTML = ''; // Mevcut listeyi temizle
+            // let totalDailyCost = 0; // Maliyet takibi kaldırıldı
+
+            // Eğer hiç kayıt yoksa mesajı göster
+            const hasConsumptions = Object.keys(currentDayConsumptions).length > 0;
+            if (!hasConsumptions) {
+                noCurrentHistoryMessage.classList.remove('hidden');
+                currentDayHistoryListContainer.appendChild(noCurrentHistoryMessage);
+            } else {
+                noCurrentHistoryMessage.classList.add('hidden');
+            }
+
+            // Kayıtları en son tüketilen tarihe göre sırala
+            const sortedConsumptions = Object.entries(currentDayConsumptions)
+                .sort(([, a], [, b]) => new Date(b.lastConsumed) - new Date(a.lastConsumed));
+
+            sortedConsumptions.forEach(([productName, data]) => {
+                const date = new Date(data.lastConsumed);
+                const formattedTime = date.toLocaleTimeString('tr-TR', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                // itemCost kaldırıldı
+
+                const listItem = document.createElement('div');
+                listItem.className = 'bg-white p-3 rounded-lg shadow-sm mb-2 flex justify-between items-center text-gray-700 transform transition-all duration-200 hover:scale-[1.01] hover:shadow-md';
+                listItem.innerHTML = `
+                    <span class="font-medium text-blue-700">${productName} (<span class="font-bold text-lg">${data.count}</span>)</span>
+                    <span class="text-sm text-gray-500">Son: ${formattedTime}</span>
+                `; // Maliyet bilgisi kaldırıldı
+                currentDayHistoryListContainer.appendChild(listItem);
+                // totalDailyCost += parseFloat(itemCost); // Maliyet takibi kaldırıldı
+            });
+
+            // currentDayTotalAmountSpan.textContent = totalDailyCost.toFixed(2); // Maliyet takibi kaldırıldı
+        }
+
+        // Geçmiş günlük logları render et
+        function renderDailyLogs() {
+            const dailyLogs = JSON.parse(localStorage.getItem('dailyLogs')) || {};
+            dailyLogsListContainer.innerHTML = '';
+            let hasDailyLogs = false;
+
+            // Tarihleri ters kronolojik sıraya göre sırala (en yeni gün en üstte)
+            const sortedDates = Object.keys(dailyLogs).sort((a, b) => new Date(b) - new Date(a));
+
+            if (sortedDates.length === 0) {
+                noDailyLogsMessage.classList.remove('hidden');
+                dailyLogsListContainer.appendChild(noDailyLogsMessage);
+                return;
+            } else {
+                noDailyLogsMessage.classList.add('hidden');
+            }
+
+            sortedDates.forEach(dateString => {
+                hasDailyLogs = true;
+                const dailyData = dailyLogs[dateString];
+                let totalItems = 0;
+                // let totalCost = 0; // Maliyet takibi kaldırıldı
+
+                for (const productName in dailyData) {
+                    totalItems += dailyData[productName].count;
+                    // price ve totalCost hesaplamaları kaldırıldı
+                }
+
+                const dailyLogItem = document.createElement('div');
+                dailyLogItem.className = 'mb-3 bg-white p-3 rounded-lg shadow-md';
+                dailyLogItem.innerHTML = `
+                    <div class="collapsible-header">
+                        <h4 class="font-bold text-gray-800 text-base md:text-lg">${new Date(dateString).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })}</h4>
+                        <span class="text-sm text-gray-600">Toplam: ${totalItems} ürün <span class="arrow-icon ml-2">&#9654;</span></span>
+                    </div>
+                    <div class="collapsible-content">
+                        <ul class="list-disc list-inside mt-2 text-gray-700 text-sm">
+                            ${Object.entries(dailyData).map(([name, data]) => {
+                                return `<li>${name}: ${data.count} adet</li>`;
+                            }).join('')}
+                        </ul>
+                    </div>
+                `;
+                dailyLogsListContainer.appendChild(dailyLogItem);
+
+                // Katlanabilir (collapsible) özelliği ekle
+                const header = dailyLogItem.querySelector('.collapsible-header');
+                const content = dailyLogItem.querySelector('.collapsible-content');
+                header.addEventListener('click', () => {
+                    content.classList.toggle('expanded');
+                    header.classList.toggle('expanded'); // Ok ikonunu döndürmek için
+                });
+            });
+
+            if (!hasDailyLogs) {
+                noDailyLogsMessage.classList.remove('hidden');
+                dailyLogsListContainer.appendChild(noDailyLogsMessage);
+            }
+        }
+
+
+        // Ürün butonlarını kategorilere göre oluştur
+        function createProductButtons() {
+            productCategoriesContainer.innerHTML = ''; // Mevcut içeriği temizle
+            for (const category in productCategories) {
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'mb-6'; // Kategori başlıkları arasına boşluk bırak
+                
+                const categoryTitle = document.createElement('h3');
+                categoryTitle.className = 'text-lg md:text-xl font-semibold text-gray-700 mb-3 pb-1 border-b border-gray-300';
+                categoryTitle.textContent = category;
+                categoryDiv.appendChild(categoryTitle);
+
+                const buttonsGrid = document.createElement('div');
+                buttonsGrid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'; // Her satırda 3 ürün (sm'de 2)
+
+                productCategories[category].forEach(productName => { // product.name yerine doğrudan productName kullan
+                    const productControlDiv = document.createElement('div');
+                    productControlDiv.className = 'flex items-center bg-gray-100 rounded-lg shadow-sm p-2 justify-between';
+
+                    const productNameSpan = document.createElement('span');
+                    productNameSpan.className = 'font-semibold text-gray-700 text-base md:text-lg flex-grow truncate mr-2';
+                    productNameSpan.textContent = productName; // Ürünün adını kullan
+                    productControlDiv.appendChild(productNameSpan);
+
+                    const controlsDiv = document.createElement('div');
+                    controlsDiv.className = 'flex items-center space-x-1';
+
+                    const minusButton = document.createElement('button');
+                    minusButton.textContent = '-';
+                    minusButton.className = 'bg-red-400 hover:bg-red-500 text-white font-bold text-lg w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-300';
+                    minusButton.addEventListener('click', () => updateConsumption(productName, -1));
+                    controlsDiv.appendChild(minusButton);
+
+                    const plusButton = document.createElement('button');
+                    plusButton.textContent = '+';
+                    plusButton.className = 'bg-blue-500 hover:bg-blue-600 text-white font-bold text-lg w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400';
+                    plusButton.addEventListener('click', () => updateConsumption(productName, 1));
+                    controlsDiv.appendChild(plusButton);
+
+                    productControlDiv.appendChild(controlsDiv);
+                    buttonsGrid.appendChild(productControlDiv);
+                });
+                categoryDiv.appendChild(buttonsGrid);
+                productCategoriesContainer.appendChild(categoryDiv);
+            }
+        }
+
+        // Bugünkü geçmişi temizle butonu işlevi
+        clearTodayHistoryBtn.addEventListener('click', () => {
+            if (confirm("Bugünkü tüketimleri temizlemek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) {
+                localStorage.removeItem('currentDayConsumptions');
+                renderConsumptionHistory();
+                showMessage('Bugünkü tüketimler temizlendi!', 'error'); 
+            }
+        });
+
+        // Tüm geçmiş logları temizle butonu işlevi
+        clearAllHistoryBtn.addEventListener('click', () => {
+            if (confirm("TÜM GEÇMİŞ GÜNLÜK LOGLARI ve BUGÜNKÜ tüketimleri temizlemek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) {
+                localStorage.removeItem('currentDayConsumptions');
+                localStorage.removeItem('dailyLogs');
+                localStorage.removeItem('lastResetDate'); // Sıfırlama tarihini de temizle
+                renderConsumptionHistory();
+                renderDailyLogs();
+                showMessage('Tüm loglar ve geçmiş temizlendi!', 'error'); 
+            }
+        });
+
+        // Uygulama yüklendiğinde çalışacak fonksiyonlar
+        window.onload = () => {
+            checkAndResetDaily(); // Günlük sıfırlama kontrolünü yap
+            createProductButtons();
+            renderConsumptionHistory(); // Bugünkü tüketimleri göster
+            renderDailyLogs(); // Geçmiş günlükleri göster
+        };
+    </script>
+</body>
+</html>
